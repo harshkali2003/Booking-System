@@ -21,6 +21,6 @@ const showSchema = new mongoose.Schema({
 } , {timestamps : true});
 
 showSchema.index({movieId : 1})
-showSchema.index({ showTime: 1 });
+showSchema.index({ timing: 1 });
 
 module.exports = mongoose.model("Show", showSchema, "Show");
