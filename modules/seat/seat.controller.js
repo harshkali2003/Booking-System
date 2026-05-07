@@ -33,3 +33,61 @@ exports.getAvailableSeat = async (req, resp, next) => {
     return next(err);
   }
 };
+
+exports.lockSeat = async (req, resp, next) => {
+  try {
+    const user = req.user;
+    if (!user) {
+      return next(new Error("Login first"));
+    }
+
+    const { seats } = req.body;
+    if (!seats || seats.length === 0) {
+      return next(new Error("seats are empty"));
+    }
+
+    const seatDocs = await Seat.find({seatNumber : {$in : seats}})
+
+    if(seatDocs.length !== seats.length){
+      return next(new Error("Some seats are booked"))
+    }
+
+    const currTime = new Date()
+
+    for(const seat of seatDocs){
+      if(seat.isBooked){
+        return next(new Error(`Seat ${seat.seatNumber} is already booked`))
+      }
+
+      const isLockActive = seat.isLocked && seat.lockExpiresAt > currTime;
+      if(isLockActive){
+        new Error(`Seat ${seat.seatNumber} is already locked`)
+      }
+
+      const seatLockExpiresAt = new Date(Date.now() + 5 * 60 * 1000)
+
+      await Seat.updateMany(
+        {
+          seatNumber : {$in : seat}
+        },
+        {
+          $set : {
+            isLocked : true,
+            lockedBy : user._id,
+            lockExpiresAt : seatLockExpiresAt,
+          }
+        }
+      )
+    }
+
+    const seatDetails = await Seat.find({seatNumber : {$in : seats}})
+
+    return resp.status(200).json({
+      success: true,
+      message: "Seat locked",
+      data : seatDetails,
+    });
+  } catch (err) {
+    return next(err);
+  }
+};
