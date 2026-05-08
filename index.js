@@ -1,15 +1,27 @@
-require("dotenv").config()
+require("dotenv").config();
+
 const express = require("express");
 
-const connectDB = require("./config/db.config")
+const connectDB = require("./config/db.config");
+const { connectRedis } = require("./config/redis.config");
 
-const app = express()
+const app = express();
 
-connectDB()
+app.use(express.json());
 
-app.use(express.json())
+const PORT = process.env.PORT;
 
-const PORT = process.env.PORT
-app.listen(PORT , () => {
-    console.log(`Server is running on ${PORT}`);
-})
+const startServer = async () => {
+  try {
+    await connectDB();
+    await connectRedis();
+
+    app.listen(PORT, () => {
+      console.log(`Server is running on ${PORT}`);
+    });
+  } catch (err) {
+    console.log("Server startup failed:", err);
+  }
+};
+
+startServer();
