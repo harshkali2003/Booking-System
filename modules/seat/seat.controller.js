@@ -1,100 +1,37 @@
-const mongoose = require("mongoose");
-const Seat = require("./seat.model");
-const Show = require("../show/show.model");
-const { redisClient } = require("../../config/redis.config");
+const asyncHandler = require("../../utils/asyncHandler");
+const {
+  getAvailableSeatService,
+  lockSeatService,
+} = require("./seat.service");
 
-exports.getAvailableSeat = async (req, resp, next) => {
-  try {
-    const { showId } = req.params;
-    if (!mongoose.Types.ObjectId.isValid(showId)) {
-      return next(new Error("invalid show id"));
-    }
+exports.getAvailableSeat = asyncHandler(async (req, resp) => {
+  const { showId } = req.params;
 
-    const show = await Show.findById(showId);
+  const seats = await getAvailableSeatService(showId);
 
-    if (!show) {
-      return next(new Error("Show not found"));
-    }
+  return resp.status(200).json({
+    success: true,
+    message: "Fetched available seats",
+    totalAvailableSeats: seats.length,
+    data: seats,
+  });
+});
 
-    const seats = await Seat.find({ showId, isBooked: false })
-      .select("seatNumber price")
-      .sort({ seatNumber: 1 });
+exports.lockSeat = asyncHandler(async (req, resp) => {
+  const user = req.user;
 
-    if (seats.length === 0) {
-      return next(new Error("No available setas"));
-    }
+  const { seats } = req.body;
+  const { showId } = req.params;
 
-    return resp.status(200).json({
-      success: true,
-      message: "fetched available setas",
-      totalAvailableSeats: seats.length,
-      data: seats,
-    });
-  } catch (err) {
-    return next(err);
-  }
-};
+  const seatDetails = await lockSeatService({
+    user,
+    seats,
+    showId,
+  });
 
-exports.lockSeat = async (req, resp, next) => {
-  try {
-    const user = req.user;
-    if (!user) {
-      return next(new Error("Login first"));
-    }
-
-    const { seats } = req.body;
-    if (!seats || seats.length === 0) {
-      return next(new Error("seats are empty"));
-    }
-
-    const seatDocs = await Seat.find({ seatNumber: { $in: seats } });
-
-    if (seatDocs.length !== seats.length) {
-      return next(new Error("Some seats are booked"));
-    }
-
-    for (const seat of seatDocs) {
-      if (seat.isBooked) {
-        return next(new Error(`Seat ${seat.seatNumber} is already booked`));
-      }
-    }
-
-    const expiryTime = new Date(Date.now() + 5 * 60 * 1000);
-
-    for (const seat of seatDocs) {
-      const lockKey = `seat-${seat.seatNumber}`;
-
-      const lockSeat = await redisClient.set(lockKey, user._id.toString(), {
-        NX: true,
-        EX: 300,
-      });
-
-      if (!lockSeat) {
-        return next(new Error(`Seat ${seat.seatNumber} is already locked`));
-      }
-
-      await Seat.updateOne(
-        {
-          seatNumber: seat.seatNumber,
-        },
-        {
-          $set: {
-            isLocked: true,
-            lockedBy: user._id,
-            lockExpiresAt: expiryTime,
-          },
-        },
-      );
-    }
-
-    const seatDetails = await Seat.find({ seatNumber: { $in: seats } });
-
-    return resp.status(200).json({
-      success: true,
-      message: "Seat locked",
-      data: seatDetails,
-    });
-  } catch (err) {
-    return next(err);
-  }
-};
+  return resp.status(200).json({
+    success: true,
+    message: "Seat locked successfully",
+    data: seatDetails,
+  });
+});
