@@ -3,7 +3,8 @@ const crypto = require("crypto");
 const AppError = require("../../common/utils/global.error");
 const Payment = require("./razorpay.model");
 const razorpay = require("../../config/razorpay.config");
-const Booking = require("../booking/booking.model")
+const Booking = require("../booking/booking.model");
+const bookingQueue = require("../../queues/booking.queue");
 
 exports.createOrderService = async (bookingId, amount, userId) => {
   if (amount === undefined || amount < 0) {
@@ -59,11 +60,9 @@ exports.verifyPaymentService = async (
     .digest("hex");
 
   let paymentStatus = "FAILED";
-  let bookingStatus = "FAILED";
 
   if (expectedSign === RZP_SIGNATURE) {
     paymentStatus = "SUCCESS";
-    bookingStatus = "CONFIRMED";
   }
 
   const payment = await Payment.findOneAndUpdate(
@@ -84,17 +83,11 @@ exports.verifyPaymentService = async (
     },
   );
 
-  await Booking.findByIdAndUpdate(
-    {_id : bookingId},
-    {
-      $set: {
-        bookingStatus,
-      },
-    },
-    {
-      new: true,
-    },
-  );
+  if (paymentStatus === "SUCCESS") {
+    await bookingQueue.add("confirm-booking", {
+      bookingId,
+    });
+  }
 
   if (paymentStatus === "FAILED") {
     throw new AppError("Payment verification failed", 400);

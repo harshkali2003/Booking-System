@@ -16,6 +16,8 @@ const startServer = async () => {
     await connectDB();
     await connectRedis();
 
+    require("./workers/booking.worker")
+
     app.listen(PORT, () => {
       console.log(`Server is running on ${PORT}`);
     });
