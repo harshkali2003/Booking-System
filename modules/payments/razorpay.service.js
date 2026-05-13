@@ -4,7 +4,9 @@ const AppError = require("../../common/utils/global.error");
 const Payment = require("./razorpay.model");
 const razorpay = require("../../config/razorpay.config");
 const Booking = require("../booking/booking.model");
+const Seat = require("../seat/seat.model")
 const bookingQueue = require("../../queues/booking.queue");
+const releaseLock = require("../../common/utils/releaseLock");
 
 exports.createOrderService = async (bookingId, amount, userId) => {
   if (amount === undefined || amount < 0) {
@@ -84,13 +86,47 @@ exports.verifyPaymentService = async (
   );
 
   if (paymentStatus === "SUCCESS") {
-    await bookingQueue.add("confirm-booking", {
-      bookingId,
-    });
+    await bookingQueue.add(
+      "confirm-booking",
+      {
+        bookingId,
+      },
+      {
+        attempts: 3,
+        backoff: {
+          type: "exponential",
+          delay: 2000,
+        },
+        removeOnComplete: true,
+        removeOnFail: false,
+      },
+    );
   }
 
   if (paymentStatus === "FAILED") {
-    throw new AppError("Payment verification failed", 400);
+    bookingExists.bookingStatus = "FAILED";
+    await Seat.updateMany(
+      {
+        showId : bookingExists.showId,
+        seatNumber : {
+          $in : bookingExists.seats
+        }
+      },
+      {
+        $set : {
+          isBooked : false,
+          isLocked : false,
+          lockedBy : null,
+          lockExpiresAt : null,
+        }
+      }
+    )
+
+    await bookingExists.save();
+    for(const seat of bookingExists.seats){
+      const lockKey = `show:${bookingExists.showId}:seat:${seat}`
+      await releaseLock(lockKey)
+    }
   }
 
   return payment;
