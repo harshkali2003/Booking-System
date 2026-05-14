@@ -4,10 +4,13 @@ const express = require("express");
 
 const connectDB = require("./config/db.config");
 const { connectRedis } = require("./config/redis.config");
+const {publicLimit , authLimit , paymentLimit} = require("./common/middlewares/rateLimit.middleware")
 
 const app = express();
 
 app.use(express.json());
+
+app.use(publicLimit)
 
 const PORT = process.env.PORT;
 
