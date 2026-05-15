@@ -1,7 +1,7 @@
 require("dotenv").config();
 const crypto = require("crypto");
 const AppError = require("../../common/utils/global.error");
-const Payment = require("./razorpay.model");
+const Payment = require("./payments.model");
 const razorpay = require("../../config/razorpay.config");
 const Booking = require("../booking/booking.model");
 const Seat = require("../seat/seat.model")

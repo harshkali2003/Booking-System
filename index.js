@@ -8,6 +8,8 @@ const {publicLimit , authLimit , paymentLimit} = require("./common/middlewares/r
 
 const app = express();
 
+app.set("trust proxy" , 1);
+
 app.use(express.json());
 
 app.use(publicLimit)

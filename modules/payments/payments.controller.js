@@ -1,5 +1,5 @@
 const asyncWrapper = require("../../common/utils/asyncWrapper")
-const {createOrderService , verifyPaymentService} = require("./razorpay.service")
+const {createOrderService , verifyPaymentService} = require("./payments.service")
 
 const createOrder = asyncWrapper(async (req , resp , next) => {
     const {bookingId} = req.params;
