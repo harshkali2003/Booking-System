@@ -4,6 +4,7 @@ const Seat = require("../modules/seat/seat.model");
 const Booking = require("../modules/booking/booking.model");
 const AppError = require("../common/utils/global.error");
 const mongoose = require("mongoose");
+const logger = require("../common/logger/logger");
 
 const worker = new Worker(
   "bookingQueue",
@@ -75,5 +76,11 @@ worker.on("completed", (job) => {
 });
 
 worker.on("failed", (job, err) => {
+  logger.error({
+    jobId: job.id,
+    bookingId: job.data.bookingId,
+    queue: job.queueName,
+    error: err.message,
+  });
   console.log(`Job failed: ${err.message}`);
 });
