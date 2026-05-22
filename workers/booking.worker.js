@@ -5,6 +5,7 @@ const Booking = require("../modules/booking/booking.model");
 const AppError = require("../common/utils/global.error");
 const mongoose = require("mongoose");
 const logger = require("../common/logger/logger");
+const {redisClient} = require("../config/redis.config")
 
 const worker = new Worker(
   "bookingQueue",
@@ -56,6 +57,8 @@ const worker = new Worker(
 
       console.log(`Booking confirmed: ${bookingId}`);
       await session.commitTransaction();
+
+      await redisClient.del(`show:${booking.showId}:available-seats`)
     } catch (err) {
       await session.abortTransaction();
       throw err;

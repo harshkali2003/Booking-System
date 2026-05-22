@@ -7,6 +7,7 @@ const Booking = require("../booking/booking.model");
 const Seat = require("../seat/seat.model")
 const bookingQueue = require("../../queues/booking.queue");
 const releaseLock = require("../../common/utils/releaseLock");
+const {redisClient} = require("../../config/redis.config")
 
 exports.createOrderService = async (bookingId, amount, userId) => {
   if (amount === undefined || amount < 0) {
@@ -127,6 +128,8 @@ exports.verifyPaymentService = async (
       const lockKey = `show:${bookingExists.showId}:seat:${seat}`
       await releaseLock(lockKey)
     }
+
+    await redisClient.del(`show:${bookingExists.showId}:available-seats`)
   }
 
   return payment;

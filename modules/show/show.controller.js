@@ -1,86 +1,35 @@
-const mongoose = require("mongoose");
-const Show = require("./show.model");
-const Movie = require("../movie/movie.model");
+const asyncHandler = require("../../common/utils/asyncWrapper");
 
-exports.createShow = async (req, resp, next) => {
-  try {
-    const user = req?.user;
-    if (!user) {
-      return next(new Error("Login first"));
-    }
+const { createShowService, getShowService } = require("./show.service");
 
-    const { movieId, screen, timing, totalSeats } = req.body;
-    if (!movieId || !screen || !timing || !totalSeats) {
-      return next(new Error("All fields are required"));
-    }
+exports.createShow = asyncHandler(async (req, resp, next) => {
+  const user = req.user;
 
-    if (!mongoose.Types.ObjectId.isValid(movieId)) {
-      return next(new Error("movie id is not valid"));
-    }
+  const { movieId, screen, timing, totalSeats } = req.body;
 
-    const movie = await Movie.findById(movieId);
+  const show = await createShowService(
+    user,
+    movieId,
+    screen,
+    timing,
+    totalSeats,
+  );
 
-    if (!movie) {
-      return next(new Error("Movie not found"));
-    }
+  return resp.status(201).json({
+    success: true,
+    message: "Show created",
+    data: show,
+  });
+});
 
-    const shows = await Show.create({
-      movieId,
-      screen,
-      timing,
-      totalSeats,
-    });
+exports.getShow = asyncHandler(async (req, resp, next) => {
+  const { movieId, screen, timing, page, limit } = req.query;
 
-    return resp.status(201).json({
-      success: true,
-      message: "Show created",
-      data: shows,
-    });
-  } catch (err) {
-    return next(err);
-  }
-};
+  const shows = await getShowService(movieId, screen, timing, page, limit);
 
-exports.getShow = async (req, resp, next) => {
-  try {
-    const { movieId, screen, timing, page = 1, limit = 10 } = req.query;
-    const filter = {};
-
-    if (movieId) {
-      if (!mongoose.Types.ObjectId.isValid(movieId)) {
-        return next(new Error("Invalid movie id"));
-      }
-      filter.movieId = movieId;
-    }
-
-    if (screen) {
-      filter.screen = screen;
-    }
-
-    if (timing) {
-      filter.timing = timing;
-    }
-
-    const pageNum = Number(page);
-    const limitNum = Number(limit);
-
-    const skip = (pageNum - 1) * limitNum;
-
-    const shows = await Show.find(filter)
-      .populate("movieId")
-      .skip(pageNum)
-      .sort({ createdAt: -1 });
-
-    if(shows.length === 0){
-      return next(new Error("No show found"))
-    }
-
-    return resp.status(200).json({
-      success: true,
-      message: "show has been fetched",
-      data: shows,
-    });
-  } catch (err) {
-    return next(err);
-  }
-};
+  return resp.status(200).json({
+    success: true,
+    message: "Shows fetched successfully",
+    data: shows,
+  });
+});

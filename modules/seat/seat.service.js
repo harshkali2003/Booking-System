@@ -9,6 +9,16 @@ exports.getAvailableSeatService = async (showId) => {
     throw new AppError("Invalid show id", 400);
   }
 
+  const cacheKey = `show:${showId}:availableSeats`
+
+  const cachedSeats = await redisClient.get(cacheKey)
+  if(cachedSeats){
+    console.log(`cahce hit`)
+    return JSON.parse(cacheKey)
+  }
+
+  console.log(`cache miss`)
+
   const show = await Show.findById(showId);
 
   if (!show) {
@@ -25,6 +35,11 @@ exports.getAvailableSeatService = async (showId) => {
   if (seats.length === 0) {
     throw new AppError("No available seats", 404);
   }
+
+  await redisClient.set(cacheKey , JSON.stringify(seats) , {
+    NX : true,
+    EX : 2 * 60,
+  })
 
   return seats;
 };
